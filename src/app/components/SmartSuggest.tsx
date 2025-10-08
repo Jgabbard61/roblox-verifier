@@ -29,7 +29,7 @@ interface ScoredCandidate {
 interface SmartSuggestProps {
   candidates: ScoredCandidate[];
   query: string;
-  onSelect: (userId: number) => void;
+  onSelect: (username: string) => void;
   onInspect: (userId: number) => void;
   loading?: boolean;
 }
@@ -245,7 +245,7 @@ export default function SmartSuggest({
                 {/* Action buttons */}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onSelect(candidate.user.id)}
+                    onClick={() => onSelect(candidate.user.name)}
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition font-medium shadow-md"
                   >
                     ✓ Select & Verify
