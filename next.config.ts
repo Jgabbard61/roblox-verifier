@@ -1,12 +1,23 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'tr.rbxcdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.rbxcdn.com',
+      },
+    ],
+    localPatterns: [
+      {
+        pathname: '/api/**',
+      },
+    ],
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-};
+}
 
-export default nextConfig;
+export default nextConfig
