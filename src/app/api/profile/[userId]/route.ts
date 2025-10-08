@@ -108,7 +108,7 @@ export async function GET(
   request: Request,
   { params }: { params: { userId: string } }
 ) {
-  const { userId } = params;
+  const { userId } = await params;
 
   if (!userId) {
     return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
