@@ -68,7 +68,7 @@ export default function SmartSuggest({
         <p className="text-gray-600 mb-4">
           Try refining your search with additional hints below
         </p>
-        
+      
         <div className="max-w-md mx-auto space-y-3">
           <input
             type="text"
@@ -115,7 +115,7 @@ export default function SmartSuggest({
     <div className="mt-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg shadow-lg p-6">
       <div className="mb-6">
         <h3 className="text-2xl font-bold text-gray-800 mb-2">
-          Smart Suggestions for "{query}"
+          Smart Suggestions for &quot;{query}&quot;
         </h3>
         <p className="text-gray-600">
           Found {candidates.length} ranked candidate{candidates.length !== 1 ? 's' : ''} • 
@@ -279,7 +279,7 @@ export default function SmartSuggest({
 function SignalBar({ label, value }: { label: string; value: number }) {
   const percentage = Math.round(value * 100);
   const color = percentage >= 70 ? 'bg-green-500' : percentage >= 40 ? 'bg-yellow-500' : 'bg-gray-300';
-  
+
   return (
     <div className="text-center">
       <div className="text-xs text-gray-600 mb-1">{label}</div>

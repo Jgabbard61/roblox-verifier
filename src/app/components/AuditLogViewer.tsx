@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface AuditLogEntry {
@@ -30,19 +30,14 @@ export default function AuditLogViewer() {
     dateTo: '',
   });
 
-  // Mock data for demonstration (replace with actual API call)
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       // TODO: Implement actual API call
       // const response = await fetch('/api/forensic/audit');
       // const data = await response.json();
       // setLogs(data);
-      
+    
       // Mock data for now
       setLogs([
         {
@@ -61,7 +56,12 @@ export default function AuditLogViewer() {
       console.error('Failed to fetch audit logs:', error);
     }
     setLoading(false);
-  };
+  }, [session?.user?.email]);
+
+  // Mock data for demonstration (replace with actual API call)
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const applyFilters = () => {
     fetchLogs();

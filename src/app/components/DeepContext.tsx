@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
 interface ProfileData {
@@ -51,11 +51,7 @@ export default function DeepContext({ userId, onClose }: DeepContextProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'activity' | 'flags'>('overview');
   const [showMentions, setShowMentions] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [userId]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/profile/${userId}`);
@@ -65,7 +61,11 @@ export default function DeepContext({ userId, onClose }: DeepContextProps) {
       console.error('Failed to fetch profile:', error);
     }
     setLoading(false);
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const calculateAccountAge = (createdAt: string) => {
     const created = new Date(createdAt);
@@ -77,9 +77,9 @@ export default function DeepContext({ userId, onClose }: DeepContextProps) {
 
   const copySummary = () => {
     if (!profile) return;
-    
+  
     const summary = `User @${profile.user.username} (Display: ${profile.user.displayName}, ID: ${profile.user.userId}) - Account created ${new Date(profile.user.createdAt).toLocaleDateString()} (${calculateAccountAge(profile.user.createdAt)}). Friends: ${profile.counts.friends}. Bio mentions: ${profile.profile.detectedMentions.join(', ') || 'None'}. Groups: ${profile.groups.slice(0, 3).map(g => g.name).join(', ')}. Flags: ${profile.profile.keywords.join(', ') || 'None'}. Generated ${new Date().toLocaleString()}.`;
-    
+  
     navigator.clipboard.writeText(summary);
     alert('Summary copied to clipboard!');
   };

@@ -18,7 +18,7 @@ export interface ForensicReport {
     name: string;
     fetchedAt: string;
   }>;
-  snapshot: any;
+  snapshot: Record<string, unknown>;
   hash: {
     algo: string;
     value: string;
@@ -49,7 +49,7 @@ export const DEFAULT_FIELD_SELECTOR: FieldSelector = {
 /**
  * Generate SHA-256 hash of data snapshot
  */
-export async function generateHash(data: any): Promise<string> {
+export async function generateHash(data: Record<string, unknown>): Promise<string> {
   const normalized = JSON.stringify(data, Object.keys(data).sort());
   const msgBuffer = new TextEncoder().encode(normalized);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -62,7 +62,7 @@ export async function generateHash(data: any): Promise<string> {
  * Create forensic report with evidence snapshot
  */
 export async function createForensicReport(
-  snapshot: any,
+  snapshot: Record<string, unknown>,
   query: { input: string; mode: 'userId' | 'username' | 'displayName' },
   user: { email?: string; name?: string },
   caseId?: string
@@ -106,8 +106,8 @@ export async function createForensicReport(
 /**
  * Filter snapshot data based on field selector
  */
-export function filterSnapshotFields(snapshot: any, selector: FieldSelector): any {
-  const filtered: any = {};
+export function filterSnapshotFields(snapshot: Record<string, unknown>, selector: FieldSelector): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
 
   if (selector.user && snapshot.user) {
     filtered.user = snapshot.user;
@@ -157,12 +157,19 @@ export async function verifyReportIntegrity(report: ForensicReport): Promise<boo
   return computedHash === report.hash.value;
 }
 
+interface GroupData {
+  name: string;
+  role: string;
+  isOwner: boolean;
+  riskTag: string;
+}
+
 /**
  * Generate PDF-friendly HTML for forensic report
  */
 export function generateReportHTML(report: ForensicReport): string {
   const snapshot = report.snapshot;
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -187,7 +194,7 @@ export function generateReportHTML(report: ForensicReport): string {
 </head>
 <body>
   <div class="watermark">FORENSIC</div>
-  
+
   <div class="header">
     <h1>🔒 Forensic Evidence Report</h1>
     <p>Report ID: ${report.meta.reportId}</p>
@@ -218,39 +225,39 @@ export function generateReportHTML(report: ForensicReport): string {
 
   <div class="section">
     <h2>User Profile Snapshot</h2>
-    ${snapshot.user ? `
+    ${snapshot.user && typeof snapshot.user === 'object' && snapshot.user !== null ? `
       <div class="label">Username:</div>
-      <div class="value">@${snapshot.user.username}</div>
+      <div class="value">@${(snapshot.user as Record<string, unknown>).username || 'N/A'}</div>
       <div class="label">Display Name:</div>
-      <div class="value">${snapshot.user.displayName}</div>
+      <div class="value">${(snapshot.user as Record<string, unknown>).displayName || 'N/A'}</div>
       <div class="label">User ID:</div>
-      <div class="value">${snapshot.user.userId}</div>
+      <div class="value">${(snapshot.user as Record<string, unknown>).userId || 'N/A'}</div>
       <div class="label">Account Created:</div>
-      <div class="value">${new Date(snapshot.user.createdAt).toLocaleDateString()}</div>
+      <div class="value">${(snapshot.user as Record<string, unknown>).createdAt ? new Date((snapshot.user as Record<string, unknown>).createdAt as string).toLocaleDateString() : 'N/A'}</div>
       <div class="label">Description:</div>
-      <div class="value">${snapshot.user.description || 'None'}</div>
-      ${snapshot.user.isBanned ? '<div class="value" style="color: red; font-weight: bold;">⚠️ ACCOUNT BANNED</div>' : ''}
+      <div class="value">${(snapshot.user as Record<string, unknown>).description || 'None'}</div>
+      ${(snapshot.user as Record<string, unknown>).isBanned ? '<div class="value" style="color: red; font-weight: bold;">⚠️ ACCOUNT BANNED</div>' : ''}
     ` : '<p>User data not available</p>'}
   </div>
 
-  ${snapshot.counts ? `
+  ${snapshot.counts && typeof snapshot.counts === 'object' && snapshot.counts !== null ? `
   <div class="section">
     <h2>Social Metrics</h2>
     <table>
       <tr><th>Metric</th><th>Count</th></tr>
-      <tr><td>Friends</td><td>${snapshot.counts.friends}</td></tr>
-      <tr><td>Followers</td><td>${snapshot.counts.followers || 'N/A'}</td></tr>
-      <tr><td>Following</td><td>${snapshot.counts.following || 'N/A'}</td></tr>
+      <tr><td>Friends</td><td>${(snapshot.counts as Record<string, unknown>).friends || 'N/A'}</td></tr>
+      <tr><td>Followers</td><td>${(snapshot.counts as Record<string, unknown>).followers || 'N/A'}</td></tr>
+      <tr><td>Following</td><td>${(snapshot.counts as Record<string, unknown>).following || 'N/A'}</td></tr>
     </table>
   </div>
   ` : ''}
 
-  ${snapshot.groups && snapshot.groups.length > 0 ? `
+  ${snapshot.groups && Array.isArray(snapshot.groups) && snapshot.groups.length > 0 ? `
   <div class="section">
     <h2>Group Memberships</h2>
     <table>
       <tr><th>Group Name</th><th>Role</th><th>Risk</th></tr>
-      ${snapshot.groups.map((g: any) => `
+      ${(snapshot.groups as GroupData[]).map((g: GroupData) => `
         <tr>
           <td>${g.name}</td>
           <td>${g.role} ${g.isOwner ? '(Owner)' : ''}</td>
@@ -261,19 +268,19 @@ export function generateReportHTML(report: ForensicReport): string {
   </div>
   ` : ''}
 
-  ${snapshot.profile && (snapshot.profile.keywords.length > 0 || snapshot.profile.detectedMentions.length > 0) ? `
+  ${snapshot.profile && typeof snapshot.profile === 'object' && snapshot.profile !== null && (Array.isArray((snapshot.profile as Record<string, unknown>).keywords) && (snapshot.profile as Record<string, unknown>).keywords.length > 0 || Array.isArray((snapshot.profile as Record<string, unknown>).detectedMentions) && (snapshot.profile as Record<string, unknown>).detectedMentions.length > 0) ? `
   <div class="section">
     <h2>Detected Flags & Mentions</h2>
-    ${snapshot.profile.keywords.length > 0 ? `
+    ${Array.isArray((snapshot.profile as Record<string, unknown>).keywords) && (snapshot.profile as Record<string, unknown>).keywords.length > 0 ? `
       <div class="label">Keyword Flags:</div>
       <div class="value">
-        ${snapshot.profile.keywords.map((kw: string) => `<span class="flag">${kw.replace('flag:', '')}</span>`).join(' ')}
+        ${((snapshot.profile as Record<string, unknown>).keywords as string[]).map((kw: string) => `<span class="flag">${kw.replace('flag:', '')}</span>`).join(' ')}
       </div>
     ` : ''}
-    ${snapshot.profile.detectedMentions.length > 0 ? `
+    ${Array.isArray((snapshot.profile as Record<string, unknown>).detectedMentions) && (snapshot.profile as Record<string, unknown>).detectedMentions.length > 0 ? `
       <div class="label">External Mentions:</div>
       <div class="value">
-        ${snapshot.profile.detectedMentions.map((m: string) => `<span class="flag">${m}</span>`).join(' ')}
+        ${((snapshot.profile as Record<string, unknown>).detectedMentions as string[]).map((m: string) => `<span class="flag">${m}</span>`).join(' ')}
       </div>
     ` : ''}
   </div>

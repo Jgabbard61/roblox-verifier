@@ -11,7 +11,7 @@ import {
 } from '@/app/lib/forensic';
 
 interface RequestBody {
-  snapshot: any;
+  snapshot: Record<string, unknown>;
   query: { input: string; mode: 'userId' | 'username' | 'displayName' };
   caseId?: string;
   fieldSelector?: FieldSelector;
@@ -71,8 +71,8 @@ export async function POST(request: Request) {
         },
       });
     }
-  } catch (error) {
-    console.error('Forensic report generation error:', error);
+  } catch (err) {
+    console.error('Forensic report generation error:', err);
     return NextResponse.json(
       { error: 'Failed to generate forensic report' },
       { status: 500 }

@@ -9,8 +9,8 @@ import { useSession } from 'next-auth/react';
 interface ForensicModeProps {
   isEnabled: boolean;
   onToggle: (enabled: boolean) => void;
-  currentSnapshot?: any;
-  query?: { input: string; mode: 'userId' | 'username' | 'displayName' };
+  currentSnapshot?: Record<string, unknown> | null;
+  query?: { input: string; mode: 'userId' | 'username' | 'displayName' } | null;
 }
 
 interface FieldSelector {
@@ -76,7 +76,7 @@ export default function ForensicMode({
         const html = await response.text();
         const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
-        
+      
         // Open in new window for printing
         const printWindow = window.open(url, '_blank');
         if (printWindow) {
@@ -119,7 +119,7 @@ export default function ForensicMode({
             </p>
           </div>
         </div>
-        
+      
         {isEnabled && (
           <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 border-l-4 border-purple-600 rounded">
             <span className="text-2xl">🔒</span>
