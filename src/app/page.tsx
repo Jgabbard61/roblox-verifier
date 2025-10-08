@@ -1,6 +1,7 @@
-// FILE: src/app/page.tsx (INTEGRATED VERSION)
-// Replace your existing page.tsx with this file
-// Integrates: Deep Context Lookup, Smart Suggest, Forensic Mode
+// FILE: src/app/page.tsx (FIXED VERSION)
+// Fixes: 1) Clicking suggestion now verifies immediately
+//        2) Subsequent searches work correctly
+//        3) Proper state management for verification flow
 
 'use client';
 
@@ -85,7 +86,9 @@ function VerifierTool() {
   const [showDeepContext, setShowDeepContext] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [scoredCandidates, setScoredCandidates] = useState<ScoredCandidate[]>([]);
-  const [lastSearchQuery, setLastSearchQuery] = useState<string>(''); // Track the actual search query
+  
+  // FIX: Track the ORIGINAL display name query separately from the input field
+  const [originalDisplayNameQuery, setOriginalDisplayNameQuery] = useState<string>('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -93,21 +96,16 @@ function VerifierTool() {
     }
   }, [status, router]);
 
-  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = []) => {
+  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = [], skipInputClear: boolean = false) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setBatchResults([]);
-    setScoredCandidates([]); // Clear previous suggestions
+    // FIX: Don't clear suggestions here - let them persist until we have a result
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
     const outputs: BatchOutput[] = [];
-    
-    // Store the original search query before any processing
-    if (!isBatchMode && inputs.length > 0) {
-      setLastSearchQuery(inputs[0]);
-    }
 
     for (const singleInput of inputs) {
       const parsed = normalizeInput(singleInput);
@@ -141,6 +139,11 @@ function VerifierTool() {
           user = await response.json();
         } else {
           // Display name - use Smart Suggest with ranking
+          // FIX: Store the original display name query for later use
+          if (!isBatchMode) {
+            setOriginalDisplayNameQuery(parsed.value);
+          }
+          
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
@@ -212,10 +215,15 @@ function VerifierTool() {
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
-      // Clear input FIRST to prevent state confusion
-      setInput('');
+      // FIX: Only clear input if we're NOT skipping (i.e., not from a suggestion click)
+      if (!skipInputClear) {
+        setInput('');
+      }
       
       if (out.status === 'Verified') {
+        // FIX: Clear suggestions when we have a verified result
+        setScoredCandidates([]);
+        
         setResult(
           <div className="bg-green-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-green-800 mb-2">✓ Verified!</h2>
@@ -242,6 +250,9 @@ function VerifierTool() {
           </div>
         );
       } else if (out.status === 'Not Found') {
+        // FIX: Clear suggestions when we have a "Not Found" result
+        setScoredCandidates([]);
+        
         setResult(
           <div className="bg-red-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-red-800">{out.status}</h2>
@@ -282,12 +293,18 @@ function VerifierTool() {
     link.click();
   };
 
-  // NEW: Handle Smart Suggest actions
+  // FIX: Completely rewritten handleSelectCandidate function
   const handleSelectCandidate = async (userId: number) => {
-    // Clear suggestions immediately to prevent state pollution
-    setScoredCandidates([]);
+    // FIX: Set the input to the userId and trigger verification
+    // The key is to NOT clear suggestions until we get the result
     setInput(userId.toString());
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+    
+    // FIX: Pass skipInputClear=true so the input field keeps the userId during processing
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true);
+    
+    // FIX: After verification completes, clear the input field
+    // This happens after the result is rendered
+    setInput('');
   };
 
   const handleInspectCandidate = (userId: number) => {
@@ -382,11 +399,11 @@ function VerifierTool() {
           {/* Single result */}
           {result && <div className="mt-6 rounded-md bg-gray-100 p-6 shadow-inner">{result}</div>}
 
-          {/* NEW: Smart Suggest Component */}
+          {/* FIX: Use originalDisplayNameQuery instead of input for the query display */}
           {!isBatchMode && scoredCandidates.length > 0 && (
             <SmartSuggest
               candidates={scoredCandidates}
-              query={lastSearchQuery}
+              query={originalDisplayNameQuery}
               onSelect={handleSelectCandidate}
               onInspect={handleInspectCandidate}
               loading={loading}
