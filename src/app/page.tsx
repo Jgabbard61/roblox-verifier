@@ -85,6 +85,7 @@ function VerifierTool() {
   const [showDeepContext, setShowDeepContext] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [scoredCandidates, setScoredCandidates] = useState<ScoredCandidate[]>([]);
+  const [lastSearchQuery, setLastSearchQuery] = useState<string>(''); // Track the actual search query
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -97,11 +98,16 @@ function VerifierTool() {
     setLoading(true);
     setResult(null);
     setBatchResults([]);
-    setScoredCandidates([]);
+    setScoredCandidates([]); // Clear previous suggestions
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
     const outputs: BatchOutput[] = [];
+    
+    // Store the original search query before any processing
+    if (!isBatchMode && inputs.length > 0) {
+      setLastSearchQuery(inputs[0]);
+    }
 
     for (const singleInput of inputs) {
       const parsed = normalizeInput(singleInput);
@@ -205,6 +211,10 @@ function VerifierTool() {
     // Render single result
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
+      
+      // Clear input FIRST to prevent state confusion
+      setInput('');
+      
       if (out.status === 'Verified') {
         setResult(
           <div className="bg-green-100 p-4 rounded-md">
@@ -240,7 +250,6 @@ function VerifierTool() {
         );
       }
       // Smart Suggest will render separately below
-      setInput('');
     }
 
     setLoading(false);
@@ -275,6 +284,8 @@ function VerifierTool() {
 
   // NEW: Handle Smart Suggest actions
   const handleSelectCandidate = async (userId: number) => {
+    // Clear suggestions immediately to prevent state pollution
+    setScoredCandidates([]);
     setInput(userId.toString());
     await handleSubmit({ preventDefault: () => {} } as React.FormEvent);
   };
@@ -375,7 +386,7 @@ function VerifierTool() {
           {!isBatchMode && scoredCandidates.length > 0 && (
             <SmartSuggest
               candidates={scoredCandidates}
-              query={input}
+              query={lastSearchQuery}
               onSelect={handleSelectCandidate}
               onInspect={handleInspectCandidate}
               loading={loading}
