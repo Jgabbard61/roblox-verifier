@@ -294,17 +294,28 @@ function VerifierTool() {
   };
 
   // FIX: Completely rewritten handleSelectCandidate function
-  const handleSelectCandidate = async (userId: number) => {
-    // FIX: Set the input to the userId and trigger verification
-    // The key is to NOT clear suggestions until we get the result
+  const handleSelectCandidate = (userId: number) => {
+    // FIX: Set loading state immediately to prevent double-clicks
+    setLoading(true);
+    
+    // FIX: Clear suggestions immediately when a candidate is selected
+    setScoredCandidates([]);
+    
+    // FIX: Set the input to the userId
     setInput(userId.toString());
     
-    // FIX: Pass skipInputClear=true so the input field keeps the userId during processing
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true);
-    
-    // FIX: After verification completes, clear the input field
-    // This happens after the result is rendered
-    setInput('');
+    // FIX: Use setTimeout to ensure state updates are processed before calling handleSubmit
+    setTimeout(() => {
+      handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true)
+        .then(() => {
+          // Clear the input field after verification completes
+          setInput('');
+        })
+        .catch((error) => {
+          console.error('Verification error:', error);
+          setLoading(false);
+        });
+    }, 0);
   };
 
   const handleInspectCandidate = (userId: number) => {
