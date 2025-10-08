@@ -91,6 +91,8 @@ function VerifierTool() {
     setLoading(true);
     setResult(null);
     setBatchResults([]);
+    setScoredCandidates([]);
+    setOriginalDisplayNameQuery('');
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
