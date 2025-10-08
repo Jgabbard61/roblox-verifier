@@ -272,8 +272,9 @@ function VerifierTool() {
   };
 
   const handleSelectCandidate = async (username: string) => {
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username], false);
-};
+    setInput(username);
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], false);
+  };
 
   const handleInspectCandidate = (userId: number) => {
     setSelectedUserId(userId.toString());
