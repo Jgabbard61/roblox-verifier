@@ -293,18 +293,15 @@ function VerifierTool() {
     link.click();
   };
 
-  // FIX: Completely rewritten handleSelectCandidate function
-  const handleSelectCandidate = async (userId: number) => {
-    // FIX: Set the input to the userId and trigger verification
-    // The key is to NOT clear suggestions until we get the result
-    setInput(userId.toString());
+  // NEW APPROACH: Set input to username and trigger normal search
+  // This uses the existing search flow that works perfectly for exact username matches
+  const handleSelectCandidate = async (username: string) => {
+    // Set the input field to the exact username from the suggestion
+    setInput(username);
     
-    // FIX: Pass skipInputClear=true so the input field keeps the userId during processing
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true);
-    
-    // FIX: After verification completes, clear the input field
-    // This happens after the result is rendered
-    setInput('');
+    // Trigger a normal search with this username
+    // The existing flow will find the exact match and show the green verified result
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], false);
   };
 
   const handleInspectCandidate = (userId: number) => {
