@@ -96,12 +96,12 @@ function VerifierTool() {
     }
   }, [status, router]);
 
-  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = [], skipInputClear: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = []) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setBatchResults([]);
-    // FIX: Don't clear suggestions here - let them persist until we have a result
+    setScoredCandidates([]); // Clear suggestions when starting a new search
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
@@ -215,15 +215,10 @@ function VerifierTool() {
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
-      // FIX: Only clear input if we're NOT skipping (i.e., not from a suggestion click)
-      if (!skipInputClear) {
-        setInput('');
-      }
+      // Clear input after verification
+      setInput('');
       
       if (out.status === 'Verified') {
-        // FIX: Clear suggestions when we have a verified result
-        setScoredCandidates([]);
-        
         setResult(
           <div className="bg-green-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-green-800 mb-2">✓ Verified!</h2>
@@ -250,9 +245,6 @@ function VerifierTool() {
           </div>
         );
       } else if (out.status === 'Not Found') {
-        // FIX: Clear suggestions when we have a "Not Found" result
-        setScoredCandidates([]);
-        
         setResult(
           <div className="bg-red-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-red-800">{out.status}</h2>
@@ -293,18 +285,19 @@ function VerifierTool() {
     link.click();
   };
 
-  // FIX: Completely rewritten handleSelectCandidate function
-  const handleSelectCandidate = async (userId: number) => {
-    // FIX: Set the input to the userId and trigger verification
-    // The key is to NOT clear suggestions until we get the result
+  // SIMPLIFIED: Just set the input and call handleSubmit normally
+  // This replicates the exact behavior of searching for a userId directly
+  const handleSelectCandidate = (userId: number) => {
+    // Set the input to the userId
     setInput(userId.toString());
     
-    // FIX: Pass skipInputClear=true so the input field keeps the userId during processing
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true);
-    
-    // FIX: After verification completes, clear the input field
-    // This happens after the result is rendered
-    setInput('');
+    // Call handleSubmit normally - it will handle everything:
+    // - Clear suggestions
+    // - Show loading state
+    // - Verify the user
+    // - Show the result
+    // - Clear the input
+    handleSubmit({ preventDefault: () => {} } as React.FormEvent);
   };
 
   const handleInspectCandidate = (userId: number) => {
