@@ -1,8 +1,3 @@
-// FILE: src/app/page.tsx (FIXED VERSION)
-// Fixes: 1) Clicking suggestion now verifies immediately
-//        2) Subsequent searches work correctly
-//        3) Proper state management for verification flow
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -71,23 +66,18 @@ function VerifierTool() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Existing state
   const [input, setInput] = useState('');
   const [result, setResult] = useState<ReactNode | null>(null);
   const [includeBanned, setIncludeBanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [batchResults, setBatchResults] = useState<BatchOutput[]>([]);
   const [isBatchMode, setIsBatchMode] = useState(false);
-
-  // NEW: Feature state
   const [forensicMode, setForensicMode] = useState(false);
   const [currentSnapshot, setCurrentSnapshot] = useState<any>(null);
   const [currentQuery, setCurrentQuery] = useState<any>(null);
   const [showDeepContext, setShowDeepContext] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [scoredCandidates, setScoredCandidates] = useState<ScoredCandidate[]>([]);
-  
-  // FIX: Track the ORIGINAL display name query separately from the input field
   const [originalDisplayNameQuery, setOriginalDisplayNameQuery] = useState<string>('');
 
   useEffect(() => {
@@ -101,7 +91,6 @@ function VerifierTool() {
     setLoading(true);
     setResult(null);
     setBatchResults([]);
-    // FIX: Don't clear suggestions here - let them persist until we have a result
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
@@ -114,7 +103,6 @@ function VerifierTool() {
         continue;
       }
 
-      // Store query for forensic mode
       if (forensicMode && !isBatchMode) {
         setCurrentQuery({ input: parsed.value, mode: parsed.type });
       }
@@ -138,8 +126,6 @@ function VerifierTool() {
           if (!response.ok) throw new Error('Roblox API error');
           user = await response.json();
         } else {
-          // Display name - use Smart Suggest with ranking
-          // FIX: Store the original display name query for later use
           if (!isBatchMode) {
             setOriginalDisplayNameQuery(parsed.value);
           }
@@ -147,8 +133,6 @@ function VerifierTool() {
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
-          
-          // NEW: Use weighted ranking algorithm
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
           
           if (!isBatchMode) {
@@ -165,7 +149,6 @@ function VerifierTool() {
         }
 
         if (user && !('error' in user)) {
-          // NEW: Fetch deep context data for forensic mode
           if (forensicMode && !isBatchMode) {
             try {
               const profileResponse = await fetch(`/api/profile/${user.id}`);
@@ -185,7 +168,6 @@ function VerifierTool() {
             avatar: user.id,
           });
         } else {
-          // Fallback to suggestions with ranking
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
@@ -211,17 +193,14 @@ function VerifierTool() {
 
     setBatchResults(outputs);
 
-    // Render single result
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
-      // FIX: Only clear input if we're NOT skipping (i.e., not from a suggestion click)
       if (!skipInputClear) {
         setInput('');
       }
       
       if (out.status === 'Verified') {
-        // FIX: Clear suggestions when we have a verified result
         setScoredCandidates([]);
         
         setResult(
@@ -237,7 +216,6 @@ function VerifierTool() {
                 className="mt-2 rounded-full"
               />
             )}
-            {/* NEW: View Profile button */}
             <button
               onClick={() => {
                 setSelectedUserId(out.avatar?.toString() || null);
@@ -250,7 +228,6 @@ function VerifierTool() {
           </div>
         );
       } else if (out.status === 'Not Found') {
-        // FIX: Clear suggestions when we have a "Not Found" result
         setScoredCandidates([]);
         
         setResult(
@@ -260,7 +237,6 @@ function VerifierTool() {
           </div>
         );
       }
-      // Smart Suggest will render separately below
     }
 
     setLoading(false);
@@ -293,19 +269,9 @@ function VerifierTool() {
     link.click();
   };
 
-  // FIX: Completely rewritten handleSelectCandidate function
-  const handleSelectCandidate = async (userId: number) => {
-    // FIX: Set the input to the userId and trigger verification
-    // The key is to NOT clear suggestions until we get the result
-    setInput(userId.toString());
-    
-    // FIX: Pass skipInputClear=true so the input field keeps the userId during processing
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], true);
-    
-    // FIX: After verification completes, clear the input field
-    // This happens after the result is rendered
-    setInput('');
-  };
+  const handleSelectCandidate = async (username: string) => {
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username], false);
+};
 
   const handleInspectCandidate = (userId: number) => {
     setSelectedUserId(userId.toString());
@@ -323,7 +289,6 @@ function VerifierTool() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <div className="w-full max-w-4xl">
-        {/* NEW: Forensic Mode Toggle */}
         {!isBatchMode && (
           <ForensicMode
             isEnabled={forensicMode}
@@ -333,7 +298,6 @@ function VerifierTool() {
           />
         )}
 
-        {/* Main Verifier Card */}
         <div className="rounded-lg bg-white p-8 shadow-xl">
           <h1 className="mb-6 text-center text-3xl font-bold text-gray-800">
             Roblox Verifier Tool
@@ -367,7 +331,6 @@ function VerifierTool() {
             </button>
           </form>
 
-          {/* Batch Upload */}
           <div className="mt-6">
             <label className="block text-gray-700 mb-2 flex items-center">
               Batch Upload (CSV):
@@ -389,17 +352,14 @@ function VerifierTool() {
             />
           </div>
 
-          {/* Loading indicator */}
           {loading && (
             <div className="mt-4 text-center text-blue-500 font-medium animate-pulse">
               Processing...
             </div>
           )}
 
-          {/* Single result */}
           {result && <div className="mt-6 rounded-md bg-gray-100 p-6 shadow-inner">{result}</div>}
 
-          {/* FIX: Use originalDisplayNameQuery instead of input for the query display */}
           {!isBatchMode && scoredCandidates.length > 0 && (
             <SmartSuggest
               candidates={scoredCandidates}
@@ -410,7 +370,6 @@ function VerifierTool() {
             />
           )}
 
-          {/* Batch Results */}
           {isBatchMode && batchResults.length > 0 && (
             <div className="mt-6">
               <h2 className="text-xl font-bold mb-4">Batch Results</h2>
@@ -441,7 +400,6 @@ function VerifierTool() {
             </div>
           )}
 
-          {/* Logout button */}
           <button
             onClick={() => signOut({ callbackUrl: '/auth/signin' })}
             className="mt-6 w-full rounded-md bg-red-500 p-3 text-white font-medium hover:bg-red-600 transition"
@@ -451,7 +409,6 @@ function VerifierTool() {
         </div>
       </div>
 
-      {/* NEW: Deep Context Modal */}
       {showDeepContext && selectedUserId && (
         <DeepContext
           userId={selectedUserId}
