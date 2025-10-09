@@ -59,6 +59,45 @@ interface BatchOutput {
   avatar?: number;
 }
 
+interface ProfileData extends Record<string, unknown> {
+  user: {
+    userId: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string;
+    createdAt: string;
+    description: string;
+    isBanned: boolean;
+  };
+  counts: {
+    friends: number;
+    followers: number;
+    following: number;
+  };
+  profile: {
+    bio: string;
+    detectedMentions: string[];
+    keywords: string[];
+  };
+  groups: Array<{
+    name: string;
+    role: string;
+    id: string;
+    joinedAt: string;
+    isOwner: boolean;
+    riskTag: 'low' | 'med' | 'high';
+  }>;
+  history: {
+    pastDisplayNames: string[];
+    pastUsernames: string[];
+  };
+}
+
+interface QueryState {
+  input: string;
+  mode: 'userId' | 'username' | 'displayName';
+}
+
 function VerifierTool() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -70,8 +109,8 @@ function VerifierTool() {
   const [batchResults, setBatchResults] = useState<BatchOutput[]>([]);
   const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
   const [forensicMode, setForensicMode] = useState<boolean>(false);
-  const [currentSnapshot, setCurrentSnapshot] = useState<any>(null);
-  const [currentQuery, setCurrentQuery] = useState<any>(null);
+  const [currentSnapshot, setCurrentSnapshot] = useState<ProfileData | null>(null);
+  const [currentQuery, setCurrentQuery] = useState<QueryState | null>(null);
   const [showDeepContext, setShowDeepContext] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [scoredCandidates, setScoredCandidates] = useState<ScoredCandidate[]>([]);
@@ -83,16 +122,19 @@ function VerifierTool() {
     }
   }, [status, router]);
 
-  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = []) => {
+  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = [], directInput?: string) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setBatchResults([]);
     setScoredCandidates([]);
     setOriginalDisplayNameQuery('');
-    setIsBatchMode(batchInputs.length > 0);
+    
+    // Only set batch mode if we have batch inputs (not when using directInput)
+    const isActualBatchMode = batchInputs.length > 0;
+    setIsBatchMode(isActualBatchMode);
 
-    const inputs = batchInputs.length > 0 ? batchInputs : [input];
+    const inputs = batchInputs.length > 0 ? batchInputs : [directInput || input];
     const outputs: BatchOutput[] = [];
 
     for (const singleInput of inputs) {
@@ -102,8 +144,11 @@ function VerifierTool() {
         continue;
       }
 
-      if (forensicMode && !isBatchMode) {
-        setCurrentQuery({ input: parsed.value, mode: parsed.type });
+      if (forensicMode && !isActualBatchMode) {
+        // Only set query for supported modes in ForensicMode
+        if (parsed.type === 'username' || parsed.type === 'userId' || parsed.type === 'displayName') {
+          setCurrentQuery({ input: parsed.value, mode: parsed.type });
+        }
       }
 
       try {
@@ -125,7 +170,7 @@ function VerifierTool() {
           if (!response.ok) throw new Error('Roblox API error');
           user = await response.json();
         } else {
-          if (!isBatchMode) {
+          if (!isActualBatchMode) {
             setOriginalDisplayNameQuery(parsed.value);
           }
           
@@ -134,7 +179,7 @@ function VerifierTool() {
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
           
-          if (!isBatchMode) {
+          if (!isActualBatchMode) {
             setScoredCandidates(candidates);
           }
           
@@ -148,7 +193,7 @@ function VerifierTool() {
         }
 
         if (user && !('error' in user)) {
-          if (forensicMode && !isBatchMode) {
+          if (forensicMode && !isActualBatchMode) {
             try {
               const profileResponse = await fetch(`/api/profile/${user.id}`);
               if (profileResponse.ok) {
@@ -172,7 +217,7 @@ function VerifierTool() {
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
           
-          if (!isBatchMode) {
+          if (!isActualBatchMode) {
             setScoredCandidates(candidates);
           }
           
@@ -192,7 +237,7 @@ function VerifierTool() {
 
     setBatchResults(outputs);
 
-    if (!isBatchMode && outputs.length === 1) {
+    if (!isActualBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
       if (out.status === 'Verified') {
@@ -266,7 +311,9 @@ function VerifierTool() {
   };
 
   const handleSelectCandidate = (username: string) => {
-    setInput(username);
+    // Directly trigger verification with the selected username
+    // This bypasses batch mode and allows SmartSuggest to work on next search
+    handleSubmit({ preventDefault: () => {} } as React.FormEvent, [], username);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
