@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const response = await fetch(`https://users.roblox.com/v1/users/${userId}`);
     const data = await response.json();
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch from Roblox' }, { status: 500 });
   }
 }
