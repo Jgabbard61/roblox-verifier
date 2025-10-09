@@ -10,7 +10,7 @@ interface ForensicModeProps {
   isEnabled: boolean;
   onToggle: (enabled: boolean) => void;
   currentSnapshot?: Record<string, unknown> | null;
-  query?: { input: string; mode: 'userId' | 'username' | 'displayName' } | null;
+  query?: { input: string; mode: 'userId' | 'username' | 'displayName' | 'url' } | null;
 }
 
 interface FieldSelector {

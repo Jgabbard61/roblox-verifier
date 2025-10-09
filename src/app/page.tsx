@@ -70,8 +70,8 @@ function VerifierTool() {
   const [batchResults, setBatchResults] = useState<BatchOutput[]>([]);
   const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
   const [forensicMode, setForensicMode] = useState<boolean>(false);
-  const [currentSnapshot, setCurrentSnapshot] = useState<any>(null);
-  const [currentQuery, setCurrentQuery] = useState<any>(null);
+  const [currentSnapshot, setCurrentSnapshot] = useState<Record<string, unknown> | null>(null);
+  const [currentQuery, setCurrentQuery] = useState<{ input: string; mode: 'username' | 'userId' | 'displayName' | 'url' } | null>(null);
   const [showDeepContext, setShowDeepContext] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [scoredCandidates, setScoredCandidates] = useState<ScoredCandidate[]>([]);
@@ -90,7 +90,10 @@ function VerifierTool() {
     setBatchResults([]);
     setScoredCandidates([]);
     setOriginalDisplayNameQuery('');
-    setIsBatchMode(batchInputs.length > 0);
+    
+    // Use local variable to avoid React state update race conditions
+    const isCurrentlyBatchMode = batchInputs.length > 0;
+    setIsBatchMode(isCurrentlyBatchMode);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
     const outputs: BatchOutput[] = [];
@@ -102,7 +105,7 @@ function VerifierTool() {
         continue;
       }
 
-      if (forensicMode && !isBatchMode) {
+      if (forensicMode && !isCurrentlyBatchMode) {
         setCurrentQuery({ input: parsed.value, mode: parsed.type });
       }
 
@@ -125,7 +128,7 @@ function VerifierTool() {
           if (!response.ok) throw new Error('Roblox API error');
           user = await response.json();
         } else {
-          if (!isBatchMode) {
+          if (!isCurrentlyBatchMode) {
             setOriginalDisplayNameQuery(parsed.value);
           }
           
@@ -134,7 +137,7 @@ function VerifierTool() {
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
           
-          if (!isBatchMode) {
+          if (!isCurrentlyBatchMode) {
             setScoredCandidates(candidates);
           }
           
@@ -148,7 +151,7 @@ function VerifierTool() {
         }
 
         if (user && !('error' in user)) {
-          if (forensicMode && !isBatchMode) {
+          if (forensicMode && !isCurrentlyBatchMode) {
             try {
               const profileResponse = await fetch(`/api/profile/${user.id}`);
               if (profileResponse.ok) {
@@ -172,7 +175,7 @@ function VerifierTool() {
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
           
-          if (!isBatchMode) {
+          if (!isCurrentlyBatchMode) {
             setScoredCandidates(candidates);
           }
           
@@ -192,7 +195,7 @@ function VerifierTool() {
 
     setBatchResults(outputs);
 
-    if (!isBatchMode && outputs.length === 1) {
+    if (!isCurrentlyBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
       if (out.status === 'Verified') {

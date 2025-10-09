@@ -268,23 +268,35 @@ export function generateReportHTML(report: ForensicReport): string {
   </div>
   ` : ''}
 
-  ${snapshot.profile && typeof snapshot.profile === 'object' && snapshot.profile !== null && (Array.isArray((snapshot.profile as Record<string, unknown>).keywords) && (snapshot.profile as Record<string, unknown>).keywords.length > 0 || Array.isArray((snapshot.profile as Record<string, unknown>).detectedMentions) && (snapshot.profile as Record<string, unknown>).detectedMentions.length > 0) ? `
+  ${(() => {
+    const profile = snapshot.profile as Record<string, unknown> | null | undefined;
+    if (!profile || typeof profile !== 'object') return '';
+    
+    const keywords = profile.keywords;
+    const detectedMentions = profile.detectedMentions;
+    const hasKeywords = Array.isArray(keywords) && keywords.length > 0;
+    const hasMentions = Array.isArray(detectedMentions) && detectedMentions.length > 0;
+    
+    if (!hasKeywords && !hasMentions) return '';
+    
+    return `
   <div class="section">
     <h2>Detected Flags & Mentions</h2>
-    ${Array.isArray((snapshot.profile as Record<string, unknown>).keywords) && (snapshot.profile as Record<string, unknown>).keywords.length > 0 ? `
+    ${hasKeywords ? `
       <div class="label">Keyword Flags:</div>
       <div class="value">
-        ${((snapshot.profile as Record<string, unknown>).keywords as string[]).map((kw: string) => `<span class="flag">${kw.replace('flag:', '')}</span>`).join(' ')}
+        ${(keywords as string[]).map((kw: string) => `<span class="flag">${kw.replace('flag:', '')}</span>`).join(' ')}
       </div>
     ` : ''}
-    ${Array.isArray((snapshot.profile as Record<string, unknown>).detectedMentions) && (snapshot.profile as Record<string, unknown>).detectedMentions.length > 0 ? `
+    ${hasMentions ? `
       <div class="label">External Mentions:</div>
       <div class="value">
-        ${((snapshot.profile as Record<string, unknown>).detectedMentions as string[]).map((m: string) => `<span class="flag">${m}</span>`).join(' ')}
+        ${(detectedMentions as string[]).map((m: string) => `<span class="flag">${m}</span>`).join(' ')}
       </div>
     ` : ''}
   </div>
-  ` : ''}
+    `;
+  })()}
 
   <div class="section">
     <h2>Data Sources</h2>
