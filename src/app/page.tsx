@@ -89,10 +89,19 @@ function VerifierTool() {
   const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = [], skipInputClear: boolean = false) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Clear previous results
     setResult(null);
     setBatchResults([]);
-    setScoredCandidates([]);
-    setOriginalDisplayNameQuery('');
+    
+    // Only clear candidates and query if starting a fresh search (not from candidate selection)
+    // This prevents clearing state when user clicks "Select & Verify" from SmartSuggest
+    const isFreshSearch = batchInputs.length === 0;
+    if (isFreshSearch) {
+      setScoredCandidates([]);
+      setOriginalDisplayNameQuery('');
+    }
+    
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
@@ -128,6 +137,7 @@ function VerifierTool() {
           if (!response.ok) throw new Error('Roblox API error');
           user = await response.json();
         } else {
+          // Display name search - trigger SmartSuggest
           if (!isBatchMode) {
             setOriginalDisplayNameQuery(parsed.value);
           }
@@ -170,6 +180,7 @@ function VerifierTool() {
             avatar: user.id,
           });
         } else {
+          // Username/ID not found, fall back to display name search
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
@@ -177,6 +188,7 @@ function VerifierTool() {
           
           if (!isBatchMode) {
             setScoredCandidates(candidates);
+            setOriginalDisplayNameQuery(parsed.value);
           }
           
           outputs.push({
@@ -198,12 +210,15 @@ function VerifierTool() {
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
       
+      // Only clear input if skipInputClear is false (default behavior for fresh searches)
       if (!skipInputClear) {
         setInput('');
       }
       
       if (out.status === 'Verified') {
+        // Clear candidates and query after successful verification
         setScoredCandidates([]);
+        setOriginalDisplayNameQuery('');
         
         setResult(
           <div className="bg-green-100 p-4 rounded-md">
@@ -229,8 +244,11 @@ function VerifierTool() {
             </button>
           </div>
         );
-      } else if (out.status === 'Not Found') {
+      } else if (out.status === 'Not Found' && (!out.suggestions || out.suggestions.length === 0)) {
+        // Only show "Not Found" error if there are truly no candidates
+        // If there are suggestions, SmartSuggest component will render instead
         setScoredCandidates([]);
+        setOriginalDisplayNameQuery('');
         
         setResult(
           <div className="bg-red-100 p-4 rounded-md">
@@ -238,6 +256,10 @@ function VerifierTool() {
             <p>{out.details}</p>
           </div>
         );
+      } else if (out.status === 'Suggestions' && out.suggestions && out.suggestions.length > 0) {
+        // Don't set result state - let SmartSuggest component render
+        // Candidates are already set in setScoredCandidates above
+        // This ensures SmartSuggest shows instead of "Not Found"
       }
     }
 
@@ -272,8 +294,9 @@ function VerifierTool() {
   };
 
   const handleSelectCandidate = async (username: string) => {
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username], false);
-};
+    // Pass true for skipInputClear to preserve the input field after selection
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username], true);
+  };
 
   const handleInspectCandidate = (userId: number) => {
     setSelectedUserId(userId.toString());
