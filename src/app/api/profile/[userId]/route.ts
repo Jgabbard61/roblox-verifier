@@ -1,7 +1,9 @@
+
 // FILE: src/app/api/profile/[userId]/route.ts
 // Deep Context Lookup - Profile aggregation API
 
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 interface GroupRole {
   group: {
@@ -105,10 +107,10 @@ function detectKeywords(bio: string): string[] {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ userId: string }> }
 ) {
-  const { userId } = await params;
+  const { userId } = await context.params;
 
   if (!userId) {
     return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
