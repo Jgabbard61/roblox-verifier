@@ -86,20 +86,39 @@ function VerifierTool() {
     }
   }, [status, router]);
 
-  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = [], skipInputClear: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent, batchInputs: string[] = []) => {
     e.preventDefault();
+
+    // Prevent double submissions
+    if (loading) {
+      console.log('[DEBUG] Already loading, skipping...');
+      return;
+    }
+
+    console.log('[DEBUG] === SUBMIT START ===');
+    console.log('[DEBUG] Input field value:', input);
+    console.log('[DEBUG] BatchInputs:', batchInputs);
+
     setLoading(true);
+
+    // CRITICAL: ALWAYS clear ALL state at the start - no conditions!
+    console.log('[DEBUG] Clearing all state...');
     setResult(null);
     setBatchResults([]);
     setScoredCandidates([]);
     setOriginalDisplayNameQuery('');
+
     setIsBatchMode(batchInputs.length > 0);
 
     const inputs = batchInputs.length > 0 ? batchInputs : [input];
+    console.log('[DEBUG] Processing inputs:', inputs);
     const outputs: BatchOutput[] = [];
 
     for (const singleInput of inputs) {
+      console.log('[DEBUG] Processing:', singleInput);
       const parsed = normalizeInput(singleInput);
+      console.log('[DEBUG] Parsed as:', parsed.type, '=', parsed.value);
+
       if (parsed.type === 'invalid') {
         outputs.push({ input: singleInput, status: 'Invalid', details: 'Invalid input' });
         continue;
@@ -114,6 +133,7 @@ function VerifierTool() {
         let user: RobloxResponse | null = null;
 
         if (parsed.type === 'username') {
+          console.log('[DEBUG] Checking exact username...');
           response = await fetch('/api/roblox', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -122,25 +142,32 @@ function VerifierTool() {
           if (!response.ok) throw new Error('Roblox API error');
           const data = await response.json();
           user = data.data?.[0] || null;
+          console.log('[DEBUG] Username result:', user ? 'FOUND' : 'NOT FOUND');
         } else if (parsed.type === 'userId' || parsed.type === 'url') {
           const id = parsed.userId || parsed.value;
+          console.log('[DEBUG] Fetching user by ID:', id);
           response = await fetch(`/api/roblox?userId=${id}`);
           if (!response.ok) throw new Error('Roblox API error');
           user = await response.json();
+          console.log('[DEBUG] User ID result:', user ? 'FOUND' : 'NOT FOUND');
         } else {
-          if (!isBatchMode) {
-            setOriginalDisplayNameQuery(parsed.value);
-          }
+          // Display name search - trigger SmartSuggest
+          console.log('[DEBUG] Display name search...');
           
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
-          
+
+          console.log('[DEBUG] Found', candidates.length, 'candidates');
+
           if (!isBatchMode) {
+            // Store candidates in local variable for immediate use
             setScoredCandidates(candidates);
+            setOriginalDisplayNameQuery(parsed.value);
+            console.log('[DEBUG] Set scoredCandidates to', candidates.length, 'items');
           }
-          
+
           outputs.push({
             input: singleInput,
             status: candidates.length > 0 ? 'Suggestions' : 'Not Found',
@@ -151,6 +178,8 @@ function VerifierTool() {
         }
 
         if (user && !('error' in user)) {
+          console.log('[DEBUG] User verified:', user.name);
+
           if (forensicMode && !isBatchMode) {
             try {
               const profileResponse = await fetch(`/api/profile/${user.id}`);
@@ -170,15 +199,21 @@ function VerifierTool() {
             avatar: user.id,
           });
         } else {
+          // Username/ID not found, fall back to display name search
+          console.log('[DEBUG] Fallback to display name search...');
           response = await fetch(`/api/search?keyword=${encodeURIComponent(parsed.value)}&limit=10`);
           if (!response.ok) throw new Error('Roblox API error');
           const searchData = await response.json();
           const candidates = getTopSuggestions(parsed.value, searchData.data || [], 10);
-          
+
+          console.log('[DEBUG] Fallback found', candidates.length, 'candidates');
+
           if (!isBatchMode) {
             setScoredCandidates(candidates);
+            setOriginalDisplayNameQuery(parsed.value);
+            console.log('[DEBUG] Set scoredCandidates to', candidates.length, 'items (fallback)');
           }
-          
+
           outputs.push({
             input: singleInput,
             status: candidates.length > 0 ? 'Suggestions' : 'Not Found',
@@ -194,17 +229,18 @@ function VerifierTool() {
     }
 
     setBatchResults(outputs);
+    console.log('[DEBUG] Outputs:', outputs);
 
     if (!isBatchMode && outputs.length === 1) {
       const out = outputs[0];
-      
-      if (!skipInputClear) {
-        setInput('');
-      }
-      
+      console.log('[DEBUG] Single output status:', out.status);
+
+      // ALWAYS clear input after processing
+      setInput('');
+      console.log('[DEBUG] Cleared input field');
+
       if (out.status === 'Verified') {
-        setScoredCandidates([]);
-        
+        console.log('[DEBUG] Setting verified result');
         setResult(
           <div className="bg-green-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-green-800 mb-2">✓ Verified!</h2>
@@ -229,18 +265,22 @@ function VerifierTool() {
             </button>
           </div>
         );
-      } else if (out.status === 'Not Found') {
-        setScoredCandidates([]);
-        
+      } else if (out.status === 'Not Found' && (!out.suggestions || out.suggestions.length === 0)) {
+        console.log('[DEBUG] Setting not found result');
         setResult(
           <div className="bg-red-100 p-4 rounded-md">
             <h2 className="text-xl font-bold text-red-800">{out.status}</h2>
             <p>{out.details}</p>
           </div>
         );
+      } else if (out.status === 'Suggestions') {
+        console.log('[DEBUG] Suggestions status - SmartSuggest will render with', out.suggestions?.length, 'candidates');
+        // Don't set result - let SmartSuggest render
       }
     }
 
+    console.log('[DEBUG] === SUBMIT END ===');
+    
     setLoading(false);
   };
 
@@ -272,8 +312,11 @@ function VerifierTool() {
   };
 
   const handleSelectCandidate = async (username: string) => {
-    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username], false);
-};
+    console.log('[DEBUG] === SELECT CANDIDATE ===');
+    console.log('[DEBUG] Selected:', username);
+    // Simply call handleSubmit with the username - it will clear everything and start fresh
+    await handleSubmit({ preventDefault: () => {} } as React.FormEvent, [username]);
+  };
 
   const handleInspectCandidate = (userId: number) => {
     setSelectedUserId(userId.toString());
@@ -287,6 +330,8 @@ function VerifierTool() {
   if (!session) {
     return null;
   }
+
+  console.log('[DEBUG] RENDER - scoredCandidates:', scoredCandidates.length, 'result:', result ? 'SET' : 'NULL');
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
@@ -313,7 +358,7 @@ function VerifierTool() {
               placeholder="Enter username, display name, user ID, or URL"
               className="w-full rounded-md border border-gray-300 p-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
             />
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
